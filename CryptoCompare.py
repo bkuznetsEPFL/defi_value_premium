@@ -64,7 +64,8 @@ class CryptoCompare(Keys):
         ohlcv = pd.DataFrame(ohlcv)
 
         try:
-            ohlcv.time = pd.to_datetime(ohlcv.time, unit='s')
+            time = ohlcv.time
+            ohlcv['time'] = pd.to_datetime(time, unit='s')
 
             ohlcv['fsym'] = fsym
             ohlcv['tsym'] = tsym
@@ -86,7 +87,8 @@ class CryptoCompare(Keys):
         block = resp_json.get('Data').get('Data')
 
         block = pd.DataFrame(block)
-        block.time = pd.to_datetime(block.time, unit='s')
+        time = block.get('time')
+        block['time'] = pd.to_datetime(time, unit='s')
 
         return block
 
@@ -112,7 +114,7 @@ class CryptoCompare(Keys):
 
 if __name__ == '__main__':
     """ test """
-    save_ohlcv_2000_all = False
+    save_ohlcv_2000_all = True
     save_blockchain_2000_all = True
 
     cc = CryptoCompare()
