@@ -11,47 +11,52 @@ class TsyvinskyPortfolios:
     """
 
     def __init__(self, all_symbols,mkcap_treshold,volume_treshold,min_price_treshold):
-        self.mkcap = pd.DataFrame(columns= all_symbols)
-        self.dfvolume = pd.DataFrame(columns= all_symbols)
-        self.momt = pd.DataFrame(columns= all_symbols)
-        self.dfreturns = pd.DataFrame(columns= all_symbols)
+        
 
 
         ohlcv = pd.read_csv('data/ohlcv_panel_USD_200_CCCAGG_all.csv')
         block = pd.read_csv('data/blockchain_panel_200_all.csv')
 
-        for coin in all_symbols:
-            prices = ohlcv[ohlcv['fsym'] == coin]['close'][1:].reset_index(drop=True)
-            supply = block[block['symbol'] == coin]['current_supply'].reset_index(drop=True)
-            vol_from = ohlcv[ohlcv['fsym'] == coin]['volumefrom'][1:].reset_index(drop=True)
-            vol_to = ohlcv[ohlcv['fsym'] == coin]['volumeto'][1:].reset_index(drop=True)
-            prices = prices[prices > min_price_treshold]
-            # if (len(vol_from)==len(prices)):
-            self.dfvolume[coin] = vol_to + vol_from*prices
-            # if (len(prices)==len(supply)):
-            self.mkcap[coin] = supply*prices
-            prices  = prices.to_frame()
-            
-            self.momt[coin] = (prices - prices.shift(21))/prices.shift(21)
-            self.dfreturns[coin] = (prices - prices.shift(1))/prices.shift(1)
+
+        supply_data = block.pivot(index = 'time', columns = 'symbol', values = 'current_supply')
+        prices_data = ohlcv.pivot(index = 'time', columns = 'fsym', values = 'close')
+        volumeto_data = ohlcv.pivot(index = 'time', columns = 'fsym', values = 'volumeto')
+        volumefrom_data = ohlcv.pivot(index = 'time', columns = 'fsym', values = 'volumefrom') 
+
+        dfprices = prices_data
+        common_cols = dfprices.columns.intersection(supply_data.columns)
+        common_cols = sorted(common_cols)
+        self.mkcap = pd.DataFrame(columns= common_cols)
+        self.dfvolume = pd.DataFrame(columns= common_cols)
+        self.momt = pd.DataFrame(columns= common_cols)
+        self.dfreturns = pd.DataFrame(columns= common_cols)
+        dfprices = dfprices[common_cols].drop(dfprices.index[-1])
+        dfprices = dfprices[dfprices > min_price_treshold]
+        supply_data = supply_data[common_cols]
+        volumeto_data = volumeto_data[common_cols].drop(volumeto_data.index[-1])
+        volumefrom_data = volumefrom_data[common_cols].drop(volumefrom_data.index[-1])
+        self.dfvolume = volumeto_data + volumefrom_data*dfprices
+        self.mkcap = supply_data*dfprices  
+        self.momt =    (dfprices - dfprices.shift(21))/dfprices.shift(21)
+        self.dfreturns = (dfprices - dfprices.shift(1))/dfprices.shift(1)
+
+        self.mkcap = self.mkcap.reset_index(drop=True)
+        self.momt = self.momt.reset_index(drop=True)
+        self.dfreturns = self.dfreturns.reset_index(drop=True)
+        self.dfvolume = self.dfvolume.reset_index(drop=True)
+
 
         self.momentum_portfolio_positions = pd.DataFrame()
         self.market_portfolio_positions = pd.DataFrame()
         self.size_portfolio_positions = pd.DataFrame()
 
         self.returns_shifted = self.dfreturns.shift(-1)     
-        print("MOMT")
-        print(self.momt)
-        print("dfret")
-        print(self.dfreturns)
-        print("vol")
-        print(self.dfvolume)
-        print(self.mkcap)
+
 
         return_cols = self.dfreturns.columns.tolist()
 
 
-        self.rename_dict = dict(zip(all_symbols, return_cols))
+        self.rename_dict = dict(zip(common_cols, return_cols))
 
         self.generate_positions(mkcap_treshold,volume_treshold)
 
@@ -66,6 +71,7 @@ class TsyvinskyPortfolios:
 
         # Loop through each date in the momentum factor dataframe
         for index, row in self.momt.iterrows():
+          if index % 7 ==0 :
             print(index)
             # Create a new dataframe to store coin data for the current date
             data = pd.DataFrame(columns = ['Coin','Market-Cap','Momentum','VolumeTo'])
@@ -130,7 +136,6 @@ class TsyvinskyPortfolios:
             #dictionnary of column names
             self.rename_dict = dict(zip(self.market_portfolio_positions.columns.tolist(), return_cols))
 
-            # self.market_portfolio_positions= self.market_portfolio_positions.rename(columns=rename_dict)
 
             #Size portfolio construction
 
@@ -181,7 +186,6 @@ class TsyvinskyPortfolios:
 
             self.size_portfolio_positions = self.size_portfolio_positions.append(weights, ignore_index=False)
 
-            # self.size_portfolio_positions= self.size_portfolio_positions.rename(columns=rename_dict)
             #Momentum Portfolio
 
             condition21 = (data21['Market-Cap'] < mkcap_treshhold) | (pd.isna(data21['Market-Cap'])) | (data21['VolumeTo'] < volume_treshold )| (pd.isna(data21['VolumeTo']))     if index > 21 else False
@@ -263,7 +267,6 @@ class TsyvinskyPortfolios:
             
             self.momentum_portfolio_positions = self.momentum_portfolio_positions.append(weights, ignore_index=False)
 
-            # self.momentum_portfolio_positions= self.momentum_portfolio_positions.rename(columns=rename_dict)
 
 
     def generate_market_portfolio_returns(self):
@@ -272,14 +275,16 @@ class TsyvinskyPortfolios:
         """
 
         self.market_portfolio_positions = self.market_portfolio_positions.rename(columns=self.rename_dict)
-        self.market_portfolio_returns = self.market_portfolio_positions.mul(self.returns_shifted).sum(axis = 1)
+        rets_rep = pd.DataFrame(np.repeat(self.market_portfolio_positions.values, 7, axis=0), columns=self.market_portfolio_positions.columns)
+        self.market_portfolio_returns = rets_rep.mul(self.returns_shifted).sum(axis = 1)
         return self.market_portfolio_returns
     def generate_momentum_portfolio_returns(self):
         """
         Function generating  the momentum portfolio returns
         """
         self.momentum_portfolio_positions = self.momentum_portfolio_positions.rename(columns=self.rename_dict)
-        self.momentum_portfolio_returns = self.momentum_portfolio_positions.mul(self.returns_shifted).sum(axis = 1)
+        rets_rep = pd.DataFrame(np.repeat(self.momentum_portfolio_positions.values, 7, axis=0), columns=self.momentum_portfolio_positions.columns)
+        self.momentum_portfolio_returns = rets_rep.mul(self.returns_shifted).sum(axis = 1)
         return self.momentum_portfolio_returns 
 
     def generate_size_portfolio_returns(self):
@@ -287,7 +292,8 @@ class TsyvinskyPortfolios:
         Function generating  the size portfolio returns
         """
         self.size_portfolio_positions = self.size_portfolio_positions.rename(columns=self.rename_dict)
-        self.size_portfolio_returns = self.size_portfolio_positions.mul(self.returns_shifted).sum(axis = 1)
+        rets_rep =pd.DataFrame(np.repeat(self.size_portfolio_positions.values, 7, axis=0), columns=self.size_portfolio_positions.columns)
+        self.size_portfolio_returns = rets_rep.mul(self.returns_shifted).sum(axis = 1)
         return self.size_portfolio_returns
 
 
@@ -303,8 +309,7 @@ class TsyvinskyPortfolios:
         headers = ['Market Portfolio Returns']
         df_market = market.to_frame()
         df_market.columns = headers
-        # df_market = df_market.replace([np.inf, -np.inf], np.nan).dropna(axis=0)
-        # df_market = df_market.mask(df_market.eq('None')).dropna()
+
         df_market['date'] = pd.date_range(end= '22/04/2023', periods=len(df_market), freq='D')
         df_market.set_index(['date'],inplace=True)
 
@@ -328,8 +333,7 @@ class TsyvinskyPortfolios:
 
         df_mom = momentum.to_frame()
         df_mom.columns = headers2
-        # df_mom = df_mom.replace([np.inf, -np.inf], np.nan).dropna(axis=0)
-        # df_mom = df_mom.mask(df_mom.eq('None')).dropna()
+
 
         df_mom['date'] = pd.date_range(end= '22/04/2023', periods=len(df_mom), freq='D')
         df_mom.set_index(['date'],inplace=True)
