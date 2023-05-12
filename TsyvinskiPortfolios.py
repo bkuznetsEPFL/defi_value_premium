@@ -10,7 +10,7 @@ class TsyvinskyPortfolios:
     https://dx.doi.org/10.2139/ssrn.3379131
     """
 
-    def __init__(self, all_symbols,mkcap_treshold,volume_treshold,min_price_treshold):
+    def __init__(self,mkcap_treshold,volume_treshold,min_price_treshold):
         
 
 

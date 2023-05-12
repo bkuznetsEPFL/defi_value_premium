@@ -74,7 +74,6 @@ if __name__ == '__main__':
                         for pair in tvl_hist:
                             date = pair.get('date')
                             date = pd.to_datetime(date, unit='s').date()
-                            print (date)
                             tvl = pair.get('totalLiquidityUSD')
                             tvls.at[str(date), str(protocol)] = tvl
                             
@@ -97,7 +96,7 @@ if __name__ == '__main__':
                     for pair in fees_hist:
                             date = pair[0]
                             date = pd.to_datetime(date, unit='s').date()
-                            print (date)
+    
                             fee = pair[1]
                             fees.at[str(date), str(protocol)] = fee
                             
@@ -118,7 +117,6 @@ if __name__ == '__main__':
                 tokens_data = fetch.get('tokens')
                 if (tokens_data is not None):
                     for pair in tokens_data:
-                            print(pair)
                             date = pair.get('date')
                             date = pd.to_datetime(date, unit='s').date()
                             mcap = 0
