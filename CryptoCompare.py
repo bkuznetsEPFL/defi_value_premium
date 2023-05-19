@@ -99,7 +99,7 @@ class CryptoCompare(Keys):
         fsym for a fixed tsym to dir_ """
         ohlcvs = [self.get_ohlcv_dataframe(fsym, tsym, limit, e)
                   for fsym in tqdm(fsym_list)]
-        pd.concat(ohlcvs, 0).to_csv(
+        pd.concat(ohlcvs, axis=0).to_csv(
             join(dir_, f'ohlcv_panel_{tsym}_{limit}_{e}_{suffix}.csv'))
 
     def save_panel_blockchain(
@@ -108,7 +108,7 @@ class CryptoCompare(Keys):
         list of fsym to dir_ """
         blocks = [self.get_blockchain_dataframe(fsym, limit)
                   for fsym in tqdm(fsym_list)]
-        pd.concat(blocks, 0).to_csv(
+        pd.concat(blocks, axis=0).to_csv(
             join(dir_, f'blockchain_panel_{limit}_{suffix}.csv'))
 
 
