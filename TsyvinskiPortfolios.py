@@ -10,12 +10,14 @@ class TsyvinskyPortfolios:
     https://dx.doi.org/10.2139/ssrn.3379131
     """
 
-    def __init__(self,mkcap_treshold,volume_treshold,min_price_treshold):
+    def __init__(self, all_symbols,mkcap_treshold,volume_treshold,min_price_treshold):
         
 
 
-        ohlcv = pd.read_csv('data/ohlcv_panel_USD_200_CCCAGG_all.csv')
-        block = pd.read_csv('data/blockchain_panel_200_all.csv')
+        ohlcv = pd.read_csv('data/ohlcv_panel_USD_2000_CCCAGG_all.csv')
+        block = pd.read_csv('data/blockchain_panel_2000_all.csv')
+
+        
 
 
         supply_data = block.pivot(index = 'time', columns = 'symbol', values = 'current_supply')
@@ -26,12 +28,50 @@ class TsyvinskyPortfolios:
         dfprices = prices_data
         common_cols = dfprices.columns.intersection(supply_data.columns)
         common_cols = sorted(common_cols)
+        
+        
+        ## We removed coins with unexpected behaviours, that cause a lot of spikes in the returjs
+        common_cols.remove("THR")
+        common_cols.remove("EBTC")
+        common_cols.remove("OPT")
+        common_cols.remove("COB")
+        common_cols.remove("CAG")
+        common_cols.remove("WBTC")
+        common_cols.remove("PRIX")
+        common_cols.remove("CNX")
+        common_cols.remove("VET")
+        common_cols.remove("ICON")
+        common_cols.remove("LQDN")
+        common_cols.remove("VERI")
+
+        common_cols.remove("HGT")
+        common_cols.remove("SPHTX")
+        common_cols.remove("CRPT")
+        common_cols.remove("HQX")
+        common_cols.remove("CBT")
+        common_cols.remove("NMR")
+
+        common_cols.remove("UP")
+        common_cols.remove("CND")
+        
+        common_cols.remove("BTCRED")
+        common_cols.remove("ETG")
+        common_cols.remove("PYLNT")
+        common_cols.remove("SNC")
+        common_cols.remove("WISH")
+
+
+        common_cols.remove("SNM")
+
+        common_cols.remove("REX") #problem output 1 at 91
+
+
         self.mkcap = pd.DataFrame(columns= common_cols)
         self.dfvolume = pd.DataFrame(columns= common_cols)
         self.momt = pd.DataFrame(columns= common_cols)
         self.dfreturns = pd.DataFrame(columns= common_cols)
         dfprices = dfprices[common_cols].drop(dfprices.index[-1])
-        dfprices = dfprices[dfprices > min_price_treshold]
+        dfprices = dfprices[np.abs(dfprices) > min_price_treshold]
         supply_data = supply_data[common_cols]
         volumeto_data = volumeto_data[common_cols].drop(volumeto_data.index[-1])
         volumefrom_data = volumefrom_data[common_cols].drop(volumefrom_data.index[-1])
@@ -40,12 +80,24 @@ class TsyvinskyPortfolios:
         self.momt =    (dfprices - dfprices.shift(21))/dfprices.shift(21)
         self.dfreturns = (dfprices - dfprices.shift(1))/dfprices.shift(1)
 
+        
         self.mkcap = self.mkcap.reset_index(drop=True)
         self.momt = self.momt.reset_index(drop=True)
         self.dfreturns = self.dfreturns.reset_index(drop=True)
         self.dfvolume = self.dfvolume.reset_index(drop=True)
 
+        self.dfvolume.replace([np.inf, -np.inf], np.nan, inplace=True)
+        self.dfreturns.replace([np.inf, -np.inf], np.nan, inplace=True)
+        self.momt.replace([np.inf, -np.inf], np.nan, inplace=True)
+        self.mkcap.replace([np.inf, -np.inf], np.nan, inplace=True)
 
+        # self.dfreturns[self.dfreturns > 5] = np.nan
+
+        dfprices.to_csv("prices.csv")
+        self.dfvolume.to_csv("dfvol.csv")
+        self.dfreturns.to_csv("dfrets.csv")
+        self.momt.to_csv("momt.csv")
+        self.mkcap.to_csv("mkcap.csv")
         self.momentum_portfolio_positions = pd.DataFrame()
         self.market_portfolio_positions = pd.DataFrame()
         self.size_portfolio_positions = pd.DataFrame()
@@ -60,6 +112,9 @@ class TsyvinskyPortfolios:
 
         self.generate_positions(mkcap_treshold,volume_treshold)
 
+        self.momentum_portfolio_positions.to_csv("MomentumPositions.csv")
+        self.size_portfolio_positions.to_csv("SizePositions.csv")
+        self.market_portfolio_positions.to_csv("MarketPositions.csv")
     def generate_positions(self,mkcap_treshhold,volume_treshold):
 
         """
@@ -80,7 +135,7 @@ class TsyvinskyPortfolios:
             # Get market cap and volume data for current date
             mkcap_r = self.mkcap.iloc[index]
             volume_r = self.dfvolume.iloc[index]
-
+            ret = self.returns_shifted.iloc[index]
 
             # If data is available 21 days ago, get market cap, momentum, and volume data for that date
             if index > 21:
@@ -88,22 +143,23 @@ class TsyvinskyPortfolios:
                 mkcap21 = self.mkcap.iloc[index - 21]
                 volume21 = self.dfvolume.iloc[index - 21]
                 momentum21 = self.momt.iloc[index - 21]
-
+                return21 = self.returns_shifted.iloc[index - 21]
 
             # Loop through each coin in the momentum factor dataframe
             for j,col in enumerate(self.momt.columns):
                 # Create a new row with coin data
-                new_row = {'Coin': col, 'Market-Cap':mkcap_r[j], 'Momentum': row[j],'VolumeTo': volume_r[j]}
+                new_row = {'Coin': col, 'Market-Cap':mkcap_r[j], 'Momentum': row[j],'VolumeTo': volume_r[j],'Retshifted': ret}
                 # Append the new row to the data dataframe
                 data = data.append(new_row, ignore_index = True)
                 # If data is available 21 days ago, create a new row with coin data for that date and append it to the data21 dataframe
                 if index > 21:
-                    new_row21 = {'Coin': col, 'Market-Cap':mkcap21[j], 'Momentum': momentum21[j],'VolumeTo': volume21[j]}
+                    new_row21 = {'Coin': col, 'Market-Cap':mkcap21[j], 'Momentum': momentum21[j],'VolumeTo': volume21[j],'Retshifted': return21}
                     data21 = data21.append(new_row21, ignore_index = True)
 
             
             # Define a condition for removing coins from the portfolio
-            condition  = (data['Market-Cap'] < mkcap_treshhold) | (pd.isna(data['Market-Cap'])) | (data['VolumeTo'] < volume_treshold )| (pd.isna(data['VolumeTo']))
+            # condition  = (pd.isna(data['Retshifted']))  | (data['Market-Cap'] < mkcap_treshhold) | (pd.isna(data['Market-Cap'])) | (data['VolumeTo'] < volume_treshold )| (pd.isna(data['VolumeTo']))
+            condition  =  (data['Market-Cap'] < mkcap_treshhold) | (pd.isna(data['Market-Cap'])) | (data['VolumeTo'] < volume_treshold )| (pd.isna(data['VolumeTo']))
 
 
 
@@ -144,7 +200,7 @@ class TsyvinskyPortfolios:
             mdf = mdf.sort_values('Coin')
             weights = mdf['Weights'].T
             self.market_portfolio_positions = self.market_portfolio_positions.append(weights, ignore_index=False)
-
+            # data.replace([np.inf, -np.inf], np.nan, inplace=True)
             data_sz = data[~condition]
 
             colmk = data_sz['Market-Cap']
@@ -188,8 +244,12 @@ class TsyvinskyPortfolios:
 
             #Momentum Portfolio
 
-            condition21 = (data21['Market-Cap'] < mkcap_treshhold) | (pd.isna(data21['Market-Cap'])) | (data21['VolumeTo'] < volume_treshold )| (pd.isna(data21['VolumeTo']))     if index > 21 else False
-            condition = (data['Market-Cap'] < mkcap_treshhold) | (pd.isna(data['Market-Cap'])) | (data['VolumeTo'] < volume_treshold )| (pd.isna(data['VolumeTo'])) | (pd.isna(data['Momentum']))
+            # condition21 = (pd.isna(data21['Retshifted']))   | (data21['Market-Cap'] < mkcap_treshhold) | (pd.isna(data21['Market-Cap'])) | (data21['VolumeTo'] < volume_treshold )| (pd.isna(data21['VolumeTo']))     if index > 21 else False
+            condition21 =  (data21['Market-Cap'] < mkcap_treshhold) | (pd.isna(data21['Market-Cap'])) | (data21['VolumeTo'] < volume_treshold )| (pd.isna(data21['VolumeTo']))     if index > 21 else False
+
+            # condition = (pd.isna(data['Retshifted']))  | (data['Market-Cap'] < mkcap_treshhold) | (pd.isna(data['Market-Cap'])) | (data['VolumeTo'] < volume_treshold )| (pd.isna(data['VolumeTo'])) | (pd.isna(data['Momentum']))
+            condition =  (data['Market-Cap'] < mkcap_treshhold) | (pd.isna(data['Market-Cap'])) | (data['VolumeTo'] < volume_treshold )| (pd.isna(data['VolumeTo'])) | (pd.isna(data['Momentum']))
+
             condition = condition | condition21
 
             data_mom = data[~condition]
@@ -273,9 +333,10 @@ class TsyvinskyPortfolios:
         """
         Function generating  the market portfolio returns
         """
-
+    
         self.market_portfolio_positions = self.market_portfolio_positions.rename(columns=self.rename_dict)
         rets_rep = pd.DataFrame(np.repeat(self.market_portfolio_positions.values, 7, axis=0), columns=self.market_portfolio_positions.columns)
+        rets_rep.to_csv("repeated_mkt.csv")
         self.market_portfolio_returns = rets_rep.mul(self.returns_shifted).sum(axis = 1)
         return self.market_portfolio_returns
     def generate_momentum_portfolio_returns(self):
@@ -284,6 +345,7 @@ class TsyvinskyPortfolios:
         """
         self.momentum_portfolio_positions = self.momentum_portfolio_positions.rename(columns=self.rename_dict)
         rets_rep = pd.DataFrame(np.repeat(self.momentum_portfolio_positions.values, 7, axis=0), columns=self.momentum_portfolio_positions.columns)
+        rets_rep.to_csv("repeated_mom.csv")
         self.momentum_portfolio_returns = rets_rep.mul(self.returns_shifted).sum(axis = 1)
         return self.momentum_portfolio_returns 
 
@@ -293,6 +355,7 @@ class TsyvinskyPortfolios:
         """
         self.size_portfolio_positions = self.size_portfolio_positions.rename(columns=self.rename_dict)
         rets_rep =pd.DataFrame(np.repeat(self.size_portfolio_positions.values, 7, axis=0), columns=self.size_portfolio_positions.columns)
+        rets_rep.to_csv("repeated_size.csv")
         self.size_portfolio_returns = rets_rep.mul(self.returns_shifted).sum(axis = 1)
         return self.size_portfolio_returns
 
@@ -309,7 +372,8 @@ class TsyvinskyPortfolios:
         headers = ['Market Portfolio Returns']
         df_market = market.to_frame()
         df_market.columns = headers
-
+        # df_market = df_market.replace([np.inf, -np.inf], np.nan).dropna(axis=0)
+        df_market = df_market.mask(df_market.eq('None')).dropna()
         df_market['date'] = pd.date_range(end= '22/04/2023', periods=len(df_market), freq='D')
         df_market.set_index(['date'],inplace=True)
 
@@ -320,7 +384,7 @@ class TsyvinskyPortfolios:
 
         df_size = size.to_frame()
         df_size.columns =  headers
-        df_size = df_size.replace([np.inf, -np.inf], np.nan).dropna(axis=0)
+        # df_size = df_size.replace([np.inf, -np.inf], np.nan).dropna(axis=0)
         df_size = df_size.mask(df_size.eq('None')).dropna()
         df_size['date'] = pd.date_range(end= '22/04/2023', periods=len(df_size), freq='D')
         df_size.set_index(['date'],inplace=True)
@@ -333,6 +397,9 @@ class TsyvinskyPortfolios:
 
         df_mom = momentum.to_frame()
         df_mom.columns = headers2
+
+        # df_mom = df_mom.replace([np.inf, -np.inf], np.nan).dropna(axis=0)
+        df_mom = df_mom.mask(df_mom.eq('None')).dropna()
 
 
         df_mom['date'] = pd.date_range(end= '22/04/2023', periods=len(df_mom), freq='D')

@@ -46,7 +46,7 @@ if __name__ == '__main__':
 
     Ll = Llama()
 
-    save_tvls = True
+    save_tvls = False
     save_fees = True
     save_mcaps = True
 
@@ -54,8 +54,8 @@ if __name__ == '__main__':
     fetch = json.loads(fetch.content.decode('utf-8'))
     all_protocols = []
     for protocol in fetch:
-        all_protocols.append(protocol.get('name'))
-    all_protocols=all_protocols[0:10]
+        all_protocols.append(protocol.get('slug'))
+
 
     if save_tvls:
         """save total value locked data 
@@ -72,10 +72,11 @@ if __name__ == '__main__':
                     if (tvl_hist is not None):
                         tvl_hist = tvl_hist.get('tvl')
                         for pair in tvl_hist:
-                            date = pair.get('date')
+                            date = pair.get('date')   
                             date = pd.to_datetime(date, unit='s').date()
                             tvl = pair.get('totalLiquidityUSD')
                             tvls.at[str(date), str(protocol)] = tvl
+                        print ("ok")
                             
 
                             
@@ -90,7 +91,11 @@ if __name__ == '__main__':
         fees.set_index('date', inplace=True)
         for protocol in all_protocols:
                 fetch = Ll.fees(protocol)
-                fetch = json.loads(fetch.content.decode('utf-8'))
+                try:
+                   fetch = json.loads(fetch.content.decode('utf-8'))
+                except ValueError:
+                    print("error")
+                    continue
                 fees_hist = fetch.get('totalDataChart')
                 if (fees_hist is not None):
                     for pair in fees_hist:
@@ -99,6 +104,7 @@ if __name__ == '__main__':
     
                             fee = pair[1]
                             fees.at[str(date), str(protocol)] = fee
+                    print(protocol)
                             
 
                             
