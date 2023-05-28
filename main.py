@@ -14,7 +14,7 @@ cc = CryptoCompare()
 all_coins = cc.available_coin_list().json()
 all_coins = [s for s in all_coins.get('Data')]
 
-port = TsyvinskyPortfolios(all_coins,1000000,10000,0.01)
+port = TsyvinskyPortfolios(1000000, 10000, 0.01)
 
 # port2 = ValuePortfolio()
 

@@ -50,8 +50,7 @@ if __name__ == '__main__':
     save_fees = True
     save_mcaps = True
 
-    fetch = Ll.all_protocols()
-    fetch = json.loads(fetch.content.decode('utf-8'))
+    fetch = Ll.all_protocols().json()
     all_protocols = []
     for protocol in fetch:
         all_protocols.append(protocol.get('slug'))
