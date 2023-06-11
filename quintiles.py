@@ -1,22 +1,25 @@
+
+
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 
 class TsyvinskyPortfolios:
     """
-    Class constructing the three  factor portfolios as discussed
+    Class constructing the quintiles portfolios as discussed
     in Y. Liu, A. Tsyvinski, Xi Wu, "Common Risk
     Factors in Cryptocurrency", pp. 20-21, see
     https://dx.doi.org/10.2139/ssrn.3379131
     """
 
-    def __init__(self,mkcap_treshold,volume_treshold,min_price_treshold):
+    def __init__(self, all_symbols,mkcap_treshold,volume_treshold,min_price_treshold):
         
 
 
-        ohlcv = pd.read_csv('data/ohlcv_panel_USD_200_CCCAGG_all.csv')
-        block = pd.read_csv('data/blockchain_panel_200_all.csv')
-
+        # ohlcv = pd.read_csv('data/ohlcv_panel_USD_2000_CCCAGG_all.csv')
+        # block = pd.read_csv('data/blockchain_panel_2000_all.csv')
+        ohlcv = pd.read_csv('data/ohlcv_panel_USD2000CCCAGG_all.csv')
+        block = pd.read_csv('data/blockchain_panel_2000_all.csv')
         
 
 
@@ -29,42 +32,7 @@ class TsyvinskyPortfolios:
         common_cols = dfprices.columns.intersection(supply_data.columns)
         common_cols = sorted(common_cols)
         
-        
-        ## We removed coins with unexpected behaviours, that cause a lot of spikes in the returjs
-        # common_cols.remove("THR")
-        # common_cols.remove("EBTC")
-        # common_cols.remove("OPT")
-        # common_cols.remove("COB")
-        # common_cols.remove("CAG")
-        # common_cols.remove("WBTC")
-        # common_cols.remove("PRIX")
-        # common_cols.remove("CNX")
-        # common_cols.remove("VET")
-        # common_cols.remove("ICON")
-        # common_cols.remove("LQDN")
-        # common_cols.remove("VERI")
-
-        # common_cols.remove("HGT")
-        # common_cols.remove("SPHTX")
-        # common_cols.remove("CRPT")
-        # common_cols.remove("HQX")
-        # common_cols.remove("CBT")
-        # common_cols.remove("NMR")
-
-        # common_cols.remove("UP")
-        # common_cols.remove("CND")
-        
-        # common_cols.remove("BTCRED")
-        # common_cols.remove("ETG")
-        # common_cols.remove("PYLNT")
-        # common_cols.remove("SNC")
-        # common_cols.remove("WISH")
-
-
-        # common_cols.remove("SNM")
-
-        # common_cols.remove("REX") #problem output 1 at 91
-
+    
 
         self.mkcap = pd.DataFrame(columns= common_cols)
         self.dfvolume = pd.DataFrame(columns= common_cols)
@@ -91,19 +59,23 @@ class TsyvinskyPortfolios:
         self.momt.replace([np.inf, -np.inf], np.nan, inplace=True)
         self.mkcap.replace([np.inf, -np.inf], np.nan, inplace=True)
 
-        # self.dfreturns[self.dfreturns > 5] = np.nan
 
-        dfprices.to_csv("prices.csv")
-        self.dfvolume.to_csv("dfvol.csv")
-        self.dfreturns.to_csv("dfrets.csv")
-        self.momt.to_csv("momt.csv")
-        self.mkcap.to_csv("mkcap.csv")
+
+        self.dfvolume = self.dfvolume.tail(3445).reset_index(drop=True)# 1 march 2014
+        self.dfreturns = self.dfreturns.tail(3445).reset_index(drop=True)
+        self.momt = self.momt.tail(3445).reset_index(drop=True)
+        self.mkcap = self.mkcap.tail(3445).reset_index(drop=True)
+
+
         self.momentum_portfolio_positions = pd.DataFrame()
         self.market_portfolio_positions = pd.DataFrame()
         self.size_portfolio_positions = pd.DataFrame()
 
-        self.returns_shifted = self.dfreturns.shift(-1)     
+        lower_limit = 0.025
+        upper_limit = 0.975
 
+
+        self.returns_shifted = self.dfreturns.shift(-1)     
 
         return_cols = self.dfreturns.columns.tolist()
 
@@ -112,20 +84,20 @@ class TsyvinskyPortfolios:
 
         self.generate_positions(mkcap_treshold,volume_treshold)
 
-        self.momentum_portfolio_positions.to_csv("MomentumPositions.csv")
-        self.size_portfolio_positions.to_csv("SizePositions.csv")
-        self.market_portfolio_positions.to_csv("MarketPositions.csv")
+        self.momentum_portfolio_positions.to_csv("quintiles-MomentumPositions.csv")
+        self.size_portfolio_positions.to_csv("quintiles-SizePositions.csv")
+        self.market_portfolio_positions.to_csv("quintiles-MarketPositions.csv")
     def generate_positions(self,mkcap_treshhold,volume_treshold):
 
         """
-        Function generating the positions of  the three  factor portfolios as discussed
+        Function generating the positions of  the three  quintiles  portfolios as discussed
         in Y. Liu, A. Tsyvinski, Xi Wu, "Common Risk
         Factors in Cryptocurrency", pp. 20-21, see
         https://dx.doi.org/10.2139/ssrn.3379131
         """
 
         # Loop through each date in the momentum factor dataframe
-        for index, row in self.momt.iterrows():
+        for index, row in self.momt.head(2400).iterrows():
           if index % 7 ==0 :
             print(index)
             # Create a new dataframe to store coin data for the current date
@@ -158,10 +130,7 @@ class TsyvinskyPortfolios:
 
             
             # Define a condition for removing coins from the portfolio
-            # condition  = (pd.isna(data['Retshifted']))  | (data['Market-Cap'] < mkcap_treshhold) | (pd.isna(data['Market-Cap'])) | (data['VolumeTo'] < volume_treshold )| (pd.isna(data['VolumeTo']))
             condition  =  (data['Market-Cap'] < mkcap_treshhold) | (pd.isna(data['Market-Cap'])) | (data['VolumeTo'] < volume_treshold )| (pd.isna(data['VolumeTo']))
-            print("data")
-            print(data)
 
 
 
@@ -197,17 +166,15 @@ class TsyvinskyPortfolios:
 
             #Size portfolio construction
 
-            # Split the coins into three size groups based on market cap, and calculate the weights of each group
 
             mdf = mdf.sort_values('Coin')
             weights = mdf['Weights'].T
             self.market_portfolio_positions = self.market_portfolio_positions.append(weights, ignore_index=False)
-            # data.replace([np.inf, -np.inf], np.nan, inplace=True)
             data_sz = data[~condition]
 
             colmk = data_sz['Market-Cap']
-            q1 = colmk.quantile(0.3)
-            q2 = colmk.quantile(0.7)
+            q1 = colmk.quantile(0.2)
+            q2 = colmk.quantile(0.8)
 
             data_up = data_sz.loc[colmk > q2]
             data_middle = data_sz.loc[(q1 < colmk) & (colmk <= q2)]
@@ -246,10 +213,8 @@ class TsyvinskyPortfolios:
 
             #Momentum Portfolio
 
-            # condition21 = (pd.isna(data21['Retshifted']))   | (data21['Market-Cap'] < mkcap_treshhold) | (pd.isna(data21['Market-Cap'])) | (data21['VolumeTo'] < volume_treshold )| (pd.isna(data21['VolumeTo']))     if index > 21 else False
             condition21 =  (data21['Market-Cap'] < mkcap_treshhold) | (pd.isna(data21['Market-Cap'])) | (data21['VolumeTo'] < volume_treshold )| (pd.isna(data21['VolumeTo']))     if index > 21 else False
 
-            # condition = (pd.isna(data['Retshifted']))  | (data['Market-Cap'] < mkcap_treshhold) | (pd.isna(data['Market-Cap'])) | (data['VolumeTo'] < volume_treshold )| (pd.isna(data['VolumeTo'])) | (pd.isna(data['Momentum']))
             condition =  (data['Market-Cap'] < mkcap_treshhold) | (pd.isna(data['Market-Cap'])) | (data['VolumeTo'] < volume_treshold )| (pd.isna(data['VolumeTo'])) | (pd.isna(data['Momentum']))
 
             condition = condition | condition21
@@ -264,60 +229,41 @@ class TsyvinskyPortfolios:
 
             data_mom = data_mom.sort_values(by = ['Market-Cap'],ascending= False)
 
+            colmom = data_mom['Momentum']
+            q1 = colmom.quantile(0.2)
+            q2 = colmom.quantile(0.8)
 
-            # Split data into two groups - those with market capitalization above the 50th percentile and those with market capitalization below or equal to the 50th percentile.
-            colmk = data_mom['Market-Cap']
-            small = data_mom.loc[colmk <= colmk.quantile(0.5)]
-            big = data_mom.loc[colmk > colmk.quantile(0.5)]
+            mom_up = data_mom.loc[colmom > q2]
+            mom_middle = data_mom.loc[(q1 < colmom) & (colmom <= q2)]
+            mom_down = data_mom.loc[colmom <= q1]
 
-            # For the big group, split into three subgroups based on momentum -
-            # those with momentum above the 70th percentile, those with momentum between the 30th and 70th percentile,
-            #  and those with momentum below or equal to the 30th percentile.
-
-            colmom = big['Momentum']
-            q1 = colmom.quantile(0.3)
-            q2 = colmom.quantile(0.7)
-            big_up = big.loc[colmom > q2]
-            big_middle = big.loc[(q1 < colmom) & (colmom <= q2)]
-            big_down = big.loc[colmom <= q1]
-
-            biguplen =  len(big_up['Market-Cap']) 
-            bigdownlen  = len(big_down['Market-Cap']) 
-            # Calculate weights based on market capitalization and assign a value of 1 for the subgroup with the highest momentum,
-            #  0 for the subgroup with medium momentum, and -1 for the subgroup with the lowest momentum.
-            #  Multiply weights with the investment strategy sign for each subgroup.
-            big_up['Weights'] = 1/biguplen if ((index > 21) & ((biguplen !=0) & (bigdownlen != 0))) else 0#LONG
-            big_middle['Weights'] = 0
-            big_down['Weights'] = -1*1/bigdownlen if ((index > 21) & ((biguplen !=0) & (bigdownlen != 0))) else 0#SHORT  
             
-            # For the small group, split into three subgroups based on momentum - 
-            # those with momentum above the 70th percentile, those with momentum between the 30th and 70th percentile, 
-            # and those with momentum below or equal to the 30th percentile.           
-
-            colmom = small['Momentum']
-            q1 = colmom.quantile(0.3)
-            q2 = colmom.quantile(0.7)
-            small_up = small.loc[colmom > q2]
-            small_middle = small.loc[(q1 < colmom) & (colmom <= q2)]
-            small_down = small.loc[colmom <= q1]
+            mkcap_up = mom_up['Market-Cap']
+            mkcap_middle = mom_middle['Market-Cap']
+            mkcap_down = mom_down['Market-Cap']
 
 
-            # Calculate weights based on market capitalization and assign a value of 1 for the subgroup with the highest momentum,
-            #  0 for the subgroup with medium momentum, and -1 for the subgroup with the lowest momentum. 
-            # Multiply weights with the investment strategy sign for each subgroup.
+            sum_up = sum(mkcap_up)
+            sum_middle = sum(mkcap_middle)
+            sum_down = sum(mkcap_down)
 
-            smalluplen = len(small_up['Market-Cap']) 
-            smalldownlen = len(small_down['Market-Cap'])
-            small_up['Weights'] =  1/smalluplen if ((index > 21) & ((smalluplen !=0) & (smalldownlen != 0))) else 0#LONG
-            small_middle['Weights'] = 0
-            small_down['Weights'] = -1*1/smalldownlen if ((index > 21) & ((smalluplen !=0) & (smalldownlen != 0))) else 0#SHORT
+
+            weights_up = mkcap_up/sum_up
+            weights_middle = mkcap_middle/sum_middle
+            weights_down = mkcap_down/sum_down
+
+            # Assign the weights to each coin based on size and momentum, multiplied by the investment strategy (sign)
+            mom_up['Weights'] = 1*weights_up
+            mom_middle['Weights'] = 0
+            mom_down['Weights'] = -1*weights_down
+
 
 
             self.momentum_portfolio_positions  = self.momentum_portfolio_positions .reset_index(drop=True)
 
 
             #Reconcatenate all the coins, to be consistent with the columns of the data frame containing all dates
-            momentum_conc = pd.concat([removed_data[['Coin','Weights']],big_up[['Coin','Weights']],big_middle[['Coin','Weights']],big_down[['Coin','Weights']],small_up[['Coin','Weights']],small_middle[['Coin','Weights']],small_down[['Coin','Weights']]])
+            momentum_conc = pd.concat([removed_data[['Coin','Weights']],mom_up[['Coin','Weights']],mom_middle[['Coin','Weights']],mom_down[['Coin','Weights']]])
             momentum_conc = momentum_conc.sort_values('Coin')
 
             momentum_conc['Coin'] = momentum_conc['Coin'].astype(str)
@@ -338,7 +284,7 @@ class TsyvinskyPortfolios:
     
         self.market_portfolio_positions = self.market_portfolio_positions.rename(columns=self.rename_dict)
         rets_rep = pd.DataFrame(np.repeat(self.market_portfolio_positions.values, 7, axis=0), columns=self.market_portfolio_positions.columns)
-        rets_rep.to_csv("repeated_mkt.csv")
+        rets_rep.to_csv("quintiles-repeated_mkt.csv")
         self.market_portfolio_returns = rets_rep.mul(self.returns_shifted).sum(axis = 1)
         return self.market_portfolio_returns
     def generate_momentum_portfolio_returns(self):
@@ -347,7 +293,7 @@ class TsyvinskyPortfolios:
         """
         self.momentum_portfolio_positions = self.momentum_portfolio_positions.rename(columns=self.rename_dict)
         rets_rep = pd.DataFrame(np.repeat(self.momentum_portfolio_positions.values, 7, axis=0), columns=self.momentum_portfolio_positions.columns)
-        rets_rep.to_csv("repeated_mom.csv")
+        rets_rep.to_csv("quintiles-repeated_mom.csv")
         self.momentum_portfolio_returns = rets_rep.mul(self.returns_shifted).sum(axis = 1)
         return self.momentum_portfolio_returns 
 
@@ -357,7 +303,7 @@ class TsyvinskyPortfolios:
         """
         self.size_portfolio_positions = self.size_portfolio_positions.rename(columns=self.rename_dict)
         rets_rep =pd.DataFrame(np.repeat(self.size_portfolio_positions.values, 7, axis=0), columns=self.size_portfolio_positions.columns)
-        rets_rep.to_csv("repeated_size.csv")
+        rets_rep.to_csv("quintiles-repeated_size.csv")
         self.size_portfolio_returns = rets_rep.mul(self.returns_shifted).sum(axis = 1)
         return self.size_portfolio_returns
 

@@ -1,6 +1,7 @@
 import requests
 import json
 import pandas as pd
+import CryptoCompare as cc
 
 
 class Llama:
@@ -40,6 +41,16 @@ class Llama:
         response = requests.get(url, headers=headers)
 
         return response
+    
+    def rev(protocol):
+        """ gets historical summary of protocol revenue """
+        # pass protocol slug
+        url = f'https://api.llama.fi/summary/fees/{protocol}?dataType=dailyRevenue'
+        headers = {'accept': '*/*'}
+        response = requests.get(url, headers=headers)
+
+        return response
+  
 
 
 if __name__ == '__main__':
@@ -47,48 +58,64 @@ if __name__ == '__main__':
     Ll = Llama()
 
     save_tvls = False
-    save_fees = True
-    save_mcaps = True
+    save_fees = False
+    save_mcaps = False
+
 
     fetch = Ll.all_protocols().json()
     all_protocols = []
     for protocol in fetch:
-        all_protocols.append(protocol.get('slug'))
+        all_protocols.append((protocol.get('slug'), protocol.get('symbol')))
+
+
+
 
 
     if save_tvls:
         """save total value locked data 
         to csv for all protocols for all dates"""
-        tvls = pd.DataFrame(columns=all_protocols)
-        tvls['date']=pd.date_range(start='2019-01-04', end='2023-03-31').strftime('%Y-%m-%d')
+        slugs = [slug for slug, symbol in all_protocols]
+        tvls = pd.DataFrame(columns=slugs)
+        tvls['date']=pd.date_range(start='2018-01-11', end='2023-06-07').strftime('%Y-%m-%d')
         tvls.set_index('date', inplace=True)
-        for protocol in all_protocols:
+        for protocol in slugs:
                 fetch = Ll.protocol(protocol)
                 fetch = json.loads(fetch.content.decode('utf-8'))
                 tvl_hist = fetch.get('chainTvls')
-                if (tvl_hist is not None):
-                    tvl_hist = list(tvl_hist.values())[0]
-                    if (tvl_hist is not None):
-                        tvl_hist = tvl_hist.get('tvl')
-                        for pair in tvl_hist:
-                            date = pair.get('date')   
-                            date = pd.to_datetime(date, unit='s').date()
-                            tvl = pair.get('totalLiquidityUSD')
-                            tvls.at[str(date), str(protocol)] = tvl
-                        print ("ok")
+                if (tvl_hist is not None ):
+                        tvl_hist = list(tvl_hist.values())
+                        for chain in tvl_hist:
+                            if (tvl_hist is not None):
+
+                                tvl_hist = chain.get('tvl')
+                                for pair in tvl_hist:
+                                    date_unix = pair.get('date') 
+                                    date = pd.to_datetime(date_unix, unit='s').date()
+                                    tvl = pair.get('totalLiquidityUSD')
+                                    if pd.isna(tvls.at[str(date), str(protocol)]):
+                                        tvls.at[str(date), str(protocol)] = tvl 
+                                    else:
+                                        tvls.at[str(date), str(protocol)] += tvl  
+
+                
+            
+                                
                             
 
                             
         tvls = tvls.fillna(0)
-        tvls.to_csv('data/tvls.csv', sep=',', index=True)
+        tvls.to_csv('data/tvls2.csv', sep=',', index=True)
+
 
     if save_fees:
         """ save fees data 
         to csv for all protocols for all dates"""
-        fees = pd.DataFrame(columns=all_protocols)
-        fees['date']=pd.date_range(start='2019-01-04', end='2023-03-31').strftime('%Y-%m-%d')
+        print("hi")
+        slugs = [slug for slug, symbol in all_protocols]
+        fees = pd.DataFrame(columns=slugs)
+        fees['date']=pd.date_range(start='2018-01-11', end='2023-06-07').strftime('%Y-%m-%d')
         fees.set_index('date', inplace=True)
-        for protocol in all_protocols:
+        for protocol in slugs:
                 fetch = Ll.fees(protocol)
                 try:
                    fetch = json.loads(fetch.content.decode('utf-8'))
@@ -96,6 +123,7 @@ if __name__ == '__main__':
                     print("error")
                     continue
                 fees_hist = fetch.get('totalDataChart')
+                print("hi")
                 if (fees_hist is not None):
                     for pair in fees_hist:
                             date = pair[0]
@@ -108,29 +136,56 @@ if __name__ == '__main__':
 
                             
         fees = fees.fillna(0)
-        fees.to_csv('data/fees.csv', sep=',', index=True)   
+        fees.to_csv('data/fees2.csv', sep=',', index=True)   
 
     if save_mcaps:
         """ save market cap data 
         to csv for all protocols for all dates"""
-        mcaps = pd.DataFrame(columns=all_protocols)
-        mcaps['date']=pd.date_range(start='2019-01-04', end='2023-03-31').strftime('%Y-%m-%d')
-        mcaps.set_index('date', inplace=True)
-        for protocol in all_protocols:
-                fetch = Ll.protocol(protocol)
-                fetch = json.loads(fetch.content.decode('utf-8'))
-                tokens_data = fetch.get('tokens')
-                if (tokens_data is not None):
-                    for pair in tokens_data:
-                            date = pair.get('date')
-                            date = pd.to_datetime(date, unit='s').date()
-                            mcap = 0
-                            tokens = pair.get('tokens')
-                            for key, val in tokens.items():
-                                mcap+=val
-                            mcaps.at[str(date), str(protocol)] = mcap
-                            
+        cc = cc.CryptoCompare()
+        slugs = [slug for slug, symbol in all_protocols]
+        symbols = [symbol for slug, symbol in all_protocols]
 
-                            
+        prices = pd.DataFrame(columns=slugs)
+        prices['date']=pd.date_range(start='2018-01-11', end='2023-06-07').strftime('%Y-%m-%d')
+        prices.set_index('date', inplace=True)
+
+        supplies = pd.DataFrame(columns=slugs)
+        supplies['date']=pd.date_range(start='2018-01-11', end='2023-06-07').strftime('%Y-%m-%d')
+        supplies.set_index('date', inplace=True)
+
+        mcaps = pd.DataFrame(columns=slugs)
+        mcaps['date']=pd.date_range(start='2018-01-11', end='2023-06-07').strftime('%Y-%m-%d')
+        mcaps.set_index('date', inplace=True)
+
+        for slug,symbol in all_protocols:
+            print(symbol)
+            fetch = cc.daily_pair_ohlc(symbol, 'USD', limit=1679, toTs='1685998800')
+            fetch = json.loads(fetch.content.decode('utf-8'))
+            price_data = fetch.get('Data').get('Data')
+
+            fetch2 = cc.blockchain_historical_daily(symbol, limit=1679, toTs='1685998800')
+            fetch2 = json.loads(fetch2.content.decode('utf-8'))
+            supply_data = fetch2.get('Data').get('Data')
+
+                
+            if price_data is not None and supply_data is not None:
+
+                for x in price_data:
+                    print(x)
+                    date = x.get('time')
+                    date = pd.to_datetime(date, unit='s').date()
+                    price = x.get('close')
+                    prices.at[str(date), str(slug)] = price
+
+                for x in supply_data:
+                    print(x)
+                    date = x.get('time')
+                    date = pd.to_datetime(date, unit='s').date()
+                    supply = x.get('current_supply')
+                    supplies.at[str(date), str(slug)] = supply
+                
+        mcaps = prices.mul(supply)
         mcaps = mcaps.fillna(0)
-        mcaps.to_csv('data/mcaps.csv', sep=',', index=True)
+        prices.to_csv('data/prices2.csv', sep=',', index=True)
+        supplies.to_csv('data/supplies2.csv', sep=',', index=True)
+        mcaps.to_csv('data/mcaps2.csv', sep=',', index=True)
