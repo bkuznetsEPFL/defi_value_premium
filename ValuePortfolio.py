@@ -7,20 +7,37 @@ class ValuePortfolio:
 
     def __init__ (self):
 
-        tvls = pd.read_csv('tvls2.csv')
-        fees = pd.read_csv('fees2.csv')
-        mcaps = pd.read_csv('mcaps2.csv')
-        prices = pd.read_csv('prices2.csv')
+        tvls = pd.read_csv('data/tvls2.csv')
+        fees = pd.read_csv('data/fees2.csv')
+        prices = pd.read_csv('data/prices2.csv')
+        df = pd.read_csv('data/updated_modified_columns.csv')
 
+        # Generate a date range from January 11, 2018 to June 14, 2023
+        date_range = pd.date_range(start='1/11/2018', end='6/13/2023')
 
-        # self.tvls = pd.to_numeric(tvls.head(1600).sort_values(by='date', ascending=True), errors='coerce')
-        # self.fees = pd.to_numeric(fees.head(1600).sort_values(by='date', ascending=True), errors='coerce')
-        # self.mcaps = pd.to_numeric(mcaps.head(1600).sort_values(by='date', ascending=True), errors='coerce')
+        # Check if the dataframe has the same number of rows as the number of dates
+        if len(df) == len(date_range):
+            # Set the date range as the first column of the dataframe
+            df['date'] = date_range
+        else:
+            print(f"Dataframe has {len(df)} rows but there are {len(date_range)} dates in the specified range.")
+
+        # Save the modified dataframe to a new CSV file
+
+     
+
+        # self.tvls = pd.to_numeric(tvls.head(1980).sort_values(by='date', ascending=True), errors='coerce')
+        # self.fees = pd.to_numeric(fees.head(1980).sort_values(by='date', ascending=True), errors='coerce')
+        # self.mcaps = pd.to_numeric(mcaps.head(1980).sort_values(by='date', ascending=True), errors='coerce')
+        # self.prices = pd.to_numeric(prices.head(1980).sort_values(by='date', ascending=True), errors='coerce')
 
         self.tvls = tvls.head(1974).sort_values(by='date', ascending=True).set_index('date')
         self.fees = fees.head(1974).sort_values(by='date', ascending=True).set_index('date')
-        self.mcaps = mcaps.head(1974).sort_values(by='date', ascending=True).set_index('date')
+        self.mcaps = df.head(1974).sort_values(by='date', ascending=True).set_index('date')
         self.prices = prices.head(1974).sort_values(by='date', ascending=True).set_index('date')
+
+
+
 
         
         # common_columns = set(self.tvls.columns).intersection(set(self.mcaps.columns), set(self.fees.columns))
@@ -41,6 +58,17 @@ class ValuePortfolio:
         self.mcaps = self.mcaps.replace(0, np.nan)  
         self.prices = self.prices.replace(0, np.nan)
 
+                
+        self.tvls = self.tvls.apply(pd.to_numeric, errors='coerce')
+        self.mcaps = self.mcaps.apply(pd.to_numeric, errors='coerce')
+        self.fees = self.fees.apply(pd.to_numeric, errors='coerce')
+
+
+        
+        self.tvls = self.tvls.reset_index(drop=True)
+        self.mcaps =  self.mcaps.reset_index(drop=True)
+        self.fees =  self.fees.reset_index(drop=True)
+        
         self.chml = self.tvls / self.mcaps
         self.gp = self.fees / self.tvls  
 
@@ -57,13 +85,13 @@ class ValuePortfolio:
         self.gp_positions = pd.DataFrame()        
 
 
-        self.chml = self.chml.tail(800)
-        self.gp = self.gp.tail(800)
-        self.tvls= self.tvls.tail(800)
-        self.fees = self.fees.tail(800)
-        self.mcaps = self.mcaps.tail(800)
-        self.dfreturns = self.dfreturns.tail(800)
-        self.returns_shifted = self.returns_shifted.tail(800)
+        self.chml = self.chml.tail(30)
+        self.gp = self.gp.tail(30)
+        self.tvls= self.tvls.tail(30)
+        self.fees = self.fees.tail(30)
+        self.mcaps = self.mcaps.tail(30)
+        self.dfreturns = self.dfreturns.tail(30)
+        self.returns_shifted = self.returns_shifted.tail(30)
 
 
 
@@ -91,11 +119,12 @@ class ValuePortfolio:
         for index, row in self.chml.iterrows():
           
           if index % 7 ==0 :
+            print(index)
           
             # Create a new dataframe to store protocol data for the current date
             data = pd.DataFrame(columns = ['Protocol','C-HML','GP', 'TVL','MCAP'])
             
-
+            
             for j,col in enumerate(self.chml.columns):
 
                 # Create a new row with protocol data
@@ -103,10 +132,12 @@ class ValuePortfolio:
                 # self.gp.iloc[index][j]
                 new_row = {'Protocol': col, 'C-HML':row[j], 'GP': self.gp.iloc[index][j], 'TVL': self.tvls.iloc[index][j],'MCAP': self.mcaps.iloc[index][j]}
 
+
                 #new_row = {'Protocol': col, 'C-HML':np.random.rand(100)[0], 'GP': np.random.rand(100)[0], 'TVL':np.random.rand(100)[0]}
                 # Append the new row to the data dataframe
-                data = data.append(new_row, ignore_index = True)
-          
+                data = pd.concat([data, pd.DataFrame([new_row])], ignore_index=True)
+                
+            print(data)
             condition  = (pd.isna(data['C-HML']) | pd.isna(data['MCAP']) )  
 
 
@@ -162,9 +193,12 @@ class ValuePortfolio:
             chml_p = chml_p.sort_values('Protocol')
             chml_p = chml_p.reset_index(drop=True)
             self.chml_positions = self.chml_positions.reset_index(drop=True)
-            weights = chml_p['Weights'].T
+            weights = pd.DataFrame(chml_p['Weights'].T)
+            weights = weights.transpose()
 
-            self.chml_positions = self.chml_positions.append(weights, ignore_index=False)       
+            self.chml_positions = pd.concat([self.chml_positions, weights], axis = 0,ignore_index=True)
+
+            print(self.chml_positions)        
             
 
         
@@ -217,11 +251,12 @@ class ValuePortfolio:
             gp_p = gp_p.reset_index(drop=True)
             
             self.gp_positions = self.gp_positions.reset_index(drop=True)
-            weights = gp_p['Weights'].T
+            weights = pd.DataFrame(gp_p['Weights'].T)
+            weights = weights.transpose()
           
           
 
-            self.gp_positions = self.gp_positions.append(weights, ignore_index=False)
+            self.gp_positions = pd.concat([self.gp_positions, weights], axis=0, ignore_index=False)
             self.chml_positions.to_csv('chml_positions-vw1.csv')
             self.gp_positions.to_csv('gp_positions-vw1.csv')
 
@@ -231,7 +266,7 @@ class ValuePortfolio:
         """
 
        
-        pos_rep = pd.DataFrame(np.repeat(self.chml_positions.values, 7, axis=0), columns=self.chml_positions.columns)  
+        pos_rep = pd.DataFrame(np.repeat(self.chml_positions.values, 7, axis=0), columns=self.chml_positions.columns) 
         # pos_rep = pos_rep.drop(pos_rep.columns[0], axis=1)  
         pos_rep.columns = pos_rep.columns.astype(int)   
         # self.returns_shifted = self.returns_shifted.sort_index(axis=1)
@@ -243,6 +278,12 @@ class ValuePortfolio:
         rets_sorted = rets_shifted.sort_index(axis=1)
         pos_rep = pos_rep.sort_index(axis=1)
         pos_rep.columns = range(len(pos_rep.columns))
+
+
+        print("pos_rep")
+        print(pos_rep)
+        print("rets_sorted")
+        print(rets_sorted)
 
      
 
@@ -289,23 +330,23 @@ class ValuePortfolio:
         df_market = chml.to_frame()
         df_market.columns = headers
 
-        df_market['date'] = pd.date_range(end= '07/06/2023', periods=len(df_market), freq='D')
+        df_market['date'] = pd.date_range(end= '13/06/2023', periods=len(df_market), freq='D')
         df_market.set_index(['date'],inplace=True)
 
         df_market['CHML Portfolio Returns'] +=1
         df_market = df_market.cumprod()
 
-        headers = ['GP Portfolio Returns']
+        # headers = ['GP Portfolio Returns']
 
-        df_size = gp.to_frame()
-        df_size.columns =  headers
-        df_size = df_size.replace([np.inf, -np.inf], np.nan).dropna(axis=0)
-        df_size = df_size.mask(df_size.eq('None')).dropna()
-        df_size['date'] = pd.date_range(end= '07/06/2023', periods=len(df_size), freq='D')
-        df_size.set_index(['date'],inplace=True)
+        # df_size = gp.to_frame()
+        # df_size.columns =  headers
+        # df_size = df_size.replace([np.inf, -np.inf], np.nan).dropna(axis=0)
+        # df_size = df_size.mask(df_size.eq('None')).dropna()
+        # df_size['date'] = pd.date_range(end= '13/06/2023', periods=len(df_size), freq='D')
+        # df_size.set_index(['date'],inplace=True)
 
-        df_size['GP Portfolio Returns'] +=1
-        df_size = df_size.cumprod()
+        # df_size['GP Portfolio Returns'] +=1
+        # df_size = df_size.cumprod()
 
         # Create a figure and axis object
         fig, ax = plt.subplots(figsize=(10, 5))
@@ -314,7 +355,7 @@ class ValuePortfolio:
         df_market.plot(ax=ax)
 
         # Plot the Size Portfolio Returns
-        df_size.plot(ax=ax)
+        # df_size.plot(ax=ax)
 
         # Plot the Momentum Portfolio Returns
 

@@ -23,7 +23,8 @@ port2 = ValuePortfolio()
 # size = port.generate_size_portfolio_returns()
 
 chml = port2.generate_chml_portfolio_returns()
-gp = port2.generate_gp_portfolio_returns()
+#gp = port2.generate_gp_portfolio_returns()
+gp = 0
 
 
 #port.plotter(mkt,size,mom)

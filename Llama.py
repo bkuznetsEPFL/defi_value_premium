@@ -2,6 +2,7 @@ import requests
 import json
 import pandas as pd
 import CryptoCompare as cc
+import time
 
 
 class Llama:
@@ -50,6 +51,18 @@ class Llama:
         response = requests.get(url, headers=headers)
 
         return response
+    
+    def market_caps(self, protocol):
+         
+        url = f'https://api.coingecko.com/api/v3/coins/{protocol}/market_chart?vs_currency=usd&days=1980&interval=daily'
+        headers = {'accept': '*/*'}
+        response = requests.get(url, headers=headers)
+
+        return response
+    
+    
+        
+
   
 
 
@@ -60,6 +73,7 @@ if __name__ == '__main__':
     save_tvls = False
     save_fees = False
     save_mcaps = False
+    save_mcaps_gecko = True
 
 
     fetch = Ll.all_protocols().json()
@@ -67,8 +81,7 @@ if __name__ == '__main__':
     for protocol in fetch:
         all_protocols.append((protocol.get('slug'), protocol.get('symbol')))
 
-
-
+    
 
 
     if save_tvls:
@@ -76,7 +89,7 @@ if __name__ == '__main__':
         to csv for all protocols for all dates"""
         slugs = [slug for slug, symbol in all_protocols]
         tvls = pd.DataFrame(columns=slugs)
-        tvls['date']=pd.date_range(start='2018-01-11', end='2023-06-07').strftime('%Y-%m-%d')
+        tvls['date']=pd.date_range(start='2018-01-11', end='2023-06-13').strftime('%Y-%m-%d')
         tvls.set_index('date', inplace=True)
         for protocol in slugs:
                 fetch = Ll.protocol(protocol)
@@ -113,7 +126,7 @@ if __name__ == '__main__':
         print("hi")
         slugs = [slug for slug, symbol in all_protocols]
         fees = pd.DataFrame(columns=slugs)
-        fees['date']=pd.date_range(start='2018-01-11', end='2023-06-07').strftime('%Y-%m-%d')
+        fees['date']=pd.date_range(start='2018-01-11', end='2023-06-13').strftime('%Y-%m-%d')
         fees.set_index('date', inplace=True)
         for protocol in slugs:
                 fetch = Ll.fees(protocol)
@@ -146,24 +159,24 @@ if __name__ == '__main__':
         symbols = [symbol for slug, symbol in all_protocols]
 
         prices = pd.DataFrame(columns=slugs)
-        prices['date']=pd.date_range(start='2018-01-11', end='2023-06-07').strftime('%Y-%m-%d')
+        prices['date']=pd.date_range(start='2018-01-11', end='2023-06-13').strftime('%Y-%m-%d')
         prices.set_index('date', inplace=True)
 
         supplies = pd.DataFrame(columns=slugs)
-        supplies['date']=pd.date_range(start='2018-01-11', end='2023-06-07').strftime('%Y-%m-%d')
+        supplies['date']=pd.date_range(start='2018-01-11', end='2023-06-13').strftime('%Y-%m-%d')
         supplies.set_index('date', inplace=True)
 
         mcaps = pd.DataFrame(columns=slugs)
-        mcaps['date']=pd.date_range(start='2018-01-11', end='2023-06-07').strftime('%Y-%m-%d')
+        mcaps['date']=pd.date_range(start='2018-01-11', end='2023-06-13').strftime('%Y-%m-%d')
         mcaps.set_index('date', inplace=True)
 
         for slug,symbol in all_protocols:
             print(symbol)
-            fetch = cc.daily_pair_ohlc(symbol, 'USD', limit=1679, toTs='1685998800')
+            fetch = cc.daily_pair_ohlc(symbol, 'USD', limit=1679, toTs='1686528000')
             fetch = json.loads(fetch.content.decode('utf-8'))
             price_data = fetch.get('Data').get('Data')
 
-            fetch2 = cc.blockchain_historical_daily(symbol, limit=1679, toTs='1685998800')
+            fetch2 = cc.blockchain_historical_daily(symbol, limit=1679, toTs='1686528000')
             fetch2 = json.loads(fetch2.content.decode('utf-8'))
             supply_data = fetch2.get('Data').get('Data')
 
@@ -189,3 +202,42 @@ if __name__ == '__main__':
         prices.to_csv('data/prices2.csv', sep=',', index=True)
         supplies.to_csv('data/supplies2.csv', sep=',', index=True)
         mcaps.to_csv('data/mcaps2.csv', sep=',', index=True)
+
+    if save_mcaps_gecko:
+
+        joins = pd.read_csv('join.csv', sep=',')
+        gecko_ids = joins['GeckoID']
+        mcaps = pd.DataFrame(columns=gecko_ids)
+
+        for idx, id in enumerate(gecko_ids):
+            print(id)
+            
+            # Extract the part before "-wormhole" if present
+            if "-wormhole" in id:
+                new_id = id.split("-wormhole")[0]
+            else:
+                new_id = id
+            
+            fetch = Ll.market_caps(new_id)
+            fetch = json.loads(fetch.content.decode('utf-8'))
+            mcap_hist = fetch.get('market_caps')
+            
+            if mcap_hist is not None:
+                for pair in mcap_hist:
+                    date = str(pair[0])
+                    if date != "0":
+                        date = pd.to_datetime(int(date[:-3]), unit='s').date()  # Remove last 3 zeros from nanosecond Unix timestamp
+                        mcap = pair[1]
+                        mcaps.at[str(date), str(id)] = mcap
+                        print(date)
+                        print(mcap)
+            
+            # Delay for 2 seconds after processing an id
+            if idx < len(gecko_ids) - 1:
+                time.sleep(3)
+
+        mcaps = mcaps.fillna(0)
+        mcaps.sort_index(inplace=True)
+        mcaps.to_csv('data/mcaps_gecko.csv', sep=',', index=True)
+
+
