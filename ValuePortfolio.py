@@ -3,6 +3,11 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 
+"""
+        Class  generating  the Value portfolio returns (GP and CHML)
+"""
+
+
 class ValuePortfolio:
 
     def __init__ (self):
@@ -26,10 +31,6 @@ class ValuePortfolio:
 
      
 
-        # self.tvls = pd.to_numeric(tvls.head(1980).sort_values(by='date', ascending=True), errors='coerce')
-        # self.fees = pd.to_numeric(fees.head(1980).sort_values(by='date', ascending=True), errors='coerce')
-        # self.mcaps = pd.to_numeric(mcaps.head(1980).sort_values(by='date', ascending=True), errors='coerce')
-        # self.prices = pd.to_numeric(prices.head(1980).sort_values(by='date', ascending=True), errors='coerce')
 
         self.tvls = tvls.head(1974).sort_values(by='date', ascending=True).set_index('date')
         self.fees = fees.head(1974).sort_values(by='date', ascending=True).set_index('date')
@@ -40,12 +41,11 @@ class ValuePortfolio:
 
 
         
-        # common_columns = set(self.tvls.columns).intersection(set(self.mcaps.columns), set(self.fees.columns))
 
         common_columns = self.tvls.columns.intersection(self.mcaps.columns)
         common_columns = sorted(common_columns)
 
-        #        Keep only the common columns in each DataFrame
+        #Keep only the common columns in each DataFrame
         self.tvls = self.tvls[common_columns]
         self.mcaps = self.mcaps[common_columns]
         self.fees = self.fees[common_columns]
@@ -85,13 +85,13 @@ class ValuePortfolio:
         self.gp_positions = pd.DataFrame()        
 
 
-        self.chml = self.chml.tail(30)
-        self.gp = self.gp.tail(30)
-        self.tvls= self.tvls.tail(30)
-        self.fees = self.fees.tail(30)
-        self.mcaps = self.mcaps.tail(30)
-        self.dfreturns = self.dfreturns.tail(30)
-        self.returns_shifted = self.returns_shifted.tail(30)
+        self.chml = self.chml.tail(815)
+        self.gp = self.gp.tail(815)
+        self.tvls= self.tvls.tail(815)
+        self.fees = self.fees.tail(815)
+        self.mcaps = self.mcaps.tail(815)
+        self.dfreturns = self.dfreturns.tail(815)
+        self.returns_shifted = self.returns_shifted.tail(815)
 
 
 
@@ -128,16 +128,13 @@ class ValuePortfolio:
             for j,col in enumerate(self.chml.columns):
 
                 # Create a new row with protocol data
-                # row[j]
-                # self.gp.iloc[index][j]
+          
                 new_row = {'Protocol': col, 'C-HML':row[j], 'GP': self.gp.iloc[index][j], 'TVL': self.tvls.iloc[index][j],'MCAP': self.mcaps.iloc[index][j]}
 
 
-                #new_row = {'Protocol': col, 'C-HML':np.random.rand(100)[0], 'GP': np.random.rand(100)[0], 'TVL':np.random.rand(100)[0]}
                 # Append the new row to the data dataframe
                 data = pd.concat([data, pd.DataFrame([new_row])], ignore_index=True)
                 
-            print(data)
             condition  = (pd.isna(data['C-HML']) | pd.isna(data['MCAP']) )  
 
 
@@ -162,19 +159,25 @@ class ValuePortfolio:
             data_middle = data_chml.loc[(q1 < col_chml) & (col_chml <= q2)]
             data_down = data_chml.loc[col_chml <= q1]
 
+            #Uncomment if want to run EW
 
             # len_up = len(data_up['C-HML'])
             # len_middle = len(data_middle['C-HML'])
             # len_down = len(data_down['C-HML'])
 
-            sum_up = sum(data_up['MCAP'])
-            sum_middle = sum(data_middle['MCAP'])
-            sum_down = sum(data_down['MCAP'])
-
             # weights_up = 1/len_up if  ((len_up != 0) & (len_down != 0)) else 0
             # weights_middle = 0 
             # weights_down = 1/len_down if  ((len_up != 0) & (len_down != 0)) else 0
 
+
+
+            #Comment if want to run EW
+            sum_up = sum(data_up['MCAP'])
+            sum_middle = sum(data_middle['MCAP'])
+            sum_down = sum(data_down['MCAP'])
+
+            
+            #Comment if want to run EW
             weights_up = data_up['MCAP']/sum_up
             weights_middle = 0 
             weights_down = data_down['MCAP']/sum_down 
@@ -198,7 +201,6 @@ class ValuePortfolio:
 
             self.chml_positions = pd.concat([self.chml_positions, weights], axis = 0,ignore_index=True)
 
-            print(self.chml_positions)        
             
 
         
@@ -220,15 +222,20 @@ class ValuePortfolio:
             data_middle = data_gp.loc[(q1 < col_gp) & (col_gp <= q2)]
             data_down = data_gp.loc[col_gp <= q1]
 
-           
+            #Uncomment if want to run EW
+
             # len_up = len(data_up['GP'])
             # len_middle = len(data_middle['GP'])
             # len_down = len(data_down['GP'])
+            # weights_up = 1/len_up if  ((len_up != 0) & (len_down != 0)) else 0
+            # weights_middle = 0 
+            # weights_down = 1/len_down if  ((len_up != 0) & (len_down != 0)) else 0
 
+            #Comment if want to run EW
             sum_up = sum(data_up['MCAP'])
             sum_middle = sum(data_middle['MCAP'])
             sum_down = sum(data_down['MCAP'])
-
+            #Comment if want to run EW
             weights_up = data_up['MCAP']/sum_up 
             weights_middle = 0
             weights_down = data_down['MCAP']/sum_down  
@@ -240,7 +247,6 @@ class ValuePortfolio:
 
 
 
-            sumlen  = len(removed_data) + len(data_up) + len(data_middle) + len(data_down)
           
 
             gp_p = pd.concat([removed_data[['Protocol','Weights']],data_up[['Protocol','Weights']],data_middle[['Protocol','Weights']],data_down[['Protocol','Weights']]])
@@ -257,8 +263,8 @@ class ValuePortfolio:
           
 
             self.gp_positions = pd.concat([self.gp_positions, weights], axis=0, ignore_index=False)
-            self.chml_positions.to_csv('chml_positions-vw1.csv')
-            self.gp_positions.to_csv('gp_positions-vw1.csv')
+            self.chml_positions.to_csv('chml_positions-vw.csv')
+            self.gp_positions.to_csv('gp_positions-vw.csv')
 
     def generate_chml_portfolio_returns(self):
         """
@@ -267,9 +273,7 @@ class ValuePortfolio:
 
        
         pos_rep = pd.DataFrame(np.repeat(self.chml_positions.values, 7, axis=0), columns=self.chml_positions.columns) 
-        # pos_rep = pos_rep.drop(pos_rep.columns[0], axis=1)  
         pos_rep.columns = pos_rep.columns.astype(int)   
-        # self.returns_shifted = self.returns_shifted.sort_index(axis=1)
         rets_shifted = self.returns_shifted.copy()  
         rets_shifted = rets_shifted.sort_index(axis=1)
         rets_shifted.columns = range(len(rets_shifted.columns))
@@ -278,20 +282,11 @@ class ValuePortfolio:
         rets_sorted = rets_shifted.sort_index(axis=1)
         pos_rep = pos_rep.sort_index(axis=1)
         pos_rep.columns = range(len(pos_rep.columns))
-
-
-        print("pos_rep")
-        print(pos_rep)
-        print("rets_sorted")
-        print(rets_sorted)
-
-     
-
     
         self.chml_returns = pos_rep.mul(rets_sorted)  
        
         self.chml_returns = self.chml_returns.sum(axis = 1)
-        self.chml_returns.to_csv('chml_returns-vw1.csv')  
+        self.chml_returns.to_csv('chml_returns-vw.csv')  
         return self.chml_returns
     
     def generate_gp_portfolio_returns(self):

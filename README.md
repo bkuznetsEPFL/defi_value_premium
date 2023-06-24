@@ -14,4 +14,16 @@ subscription.
 
 
 
+### Tutorial:
 
+To generate the Tsyvinski portfolio returns (Market, size, and momentum) you can run the main-Tsyvinski.py class
+
+To generate the Value portfolio returns (GP and CHML) you can run the main-Value.py class (Note that the plots returns need to be windsorized, so you have to run winsorized_gp.py and winsorized_chml.py to generate the plots)
+
+To regress GP on the Tsyvinski portfolios, run stat-significance-gp.py
+
+To regress CHML on the Tsyvinski portfolios, run stat-significance-chml.py
+
+Note that for the GP and CHML portfolios, if you need the respective EW portfolios you should uncoment the specified part of the code in the ValuePortfolio.py class
+
+Quintiles.py Generates the quintile portfolios discussed in Tsyvinski, However we used it for testing purposes
