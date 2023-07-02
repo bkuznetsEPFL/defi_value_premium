@@ -6,50 +6,60 @@ import matplotlib.pyplot as plt
 lower_limit = 0.025
 upper_limit = 0.975
 
-def plotter(gpew,gpvw):
-        """
-        Function plotting the cumulative portfolio returns, using their returns (csv)
-        """
+import matplotlib.dates as mdates
 
-        headers = ['GP EW Portfolio Returns']
-        df_gpew = gpew.to_frame()
-        df_gpew.columns = headers
-        df_gpew = df_gpew.mask(df_gpew.eq('None')).dropna()
-        df_gpew['date'] = pd.date_range(end= '25/05/2023', periods=len(df_gpew), freq='D')
-        df_gpew.set_index(['date'],inplace=True)
+def plotter(gpew, gpvw):
+    """
+    Function plotting the cumulative portfolio returns, using their returns (csv)
+    """
 
-        df_gpew['GP EW Portfolio Returns'] +=1
-        df_gpew = df_gpew.cumprod()
+    headers = ['GP EW Portfolio Returns']
+    df_gpew = gpew.to_frame()
+    df_gpew.columns = headers
+    df_gpew = df_gpew.mask(df_gpew.eq('None')).dropna()
+    df_gpew['date'] = pd.date_range(end='25/05/2023', periods=len(df_gpew), freq='D')
+    df_gpew.set_index(['date'], inplace=True)
 
-        headers = ['GP VW Portfolio Returns']
+    df_gpew['GP EW Portfolio Returns'] += 1
+    df_gpew = df_gpew.cumprod()
 
-        df_gpvw = gpvw.to_frame()
-        df_gpvw.columns =  headers
-        df_gpvw = df_gpvw.mask(df_gpvw.eq('None')).dropna()
-        df_gpvw['date'] = pd.date_range(end= '25/05/2023', periods=len(df_gpvw), freq='D')
-        df_gpvw.set_index(['date'],inplace=True)
+    headers = ['GP VW Portfolio Returns']
 
-        df_gpvw['GP VW Portfolio Returns'] +=1
-        df_gpvw = df_gpvw.cumprod()
+    df_gpvw = gpvw.to_frame()
+    df_gpvw.columns = headers
+    df_gpvw = df_gpvw.mask(df_gpvw.eq('None')).dropna()
+    df_gpvw['date'] = pd.date_range(end='25/05/2023', periods=len(df_gpvw), freq='D')
+    df_gpvw.set_index(['date'], inplace=True)
 
-        # Create a figure and axis object
-        fig, ax = plt.subplots(figsize=(10, 5))
+    df_gpvw['GP VW Portfolio Returns'] += 1
+    df_gpvw = df_gpvw.cumprod()
 
-        # Plot the Market Portfolio Returns
-        df_gpew.plot(ax=ax)
+    # Create a figure and axis object
+    fig, ax = plt.subplots(figsize=(10, 5))
 
-        # Plot the Size Portfolio Returns
-        df_gpvw.plot(ax=ax)
+    # Plot the Market Portfolio Returns
+    df_gpew.plot(ax=ax)
 
-       
+    # Plot the Size Portfolio Returns
+    df_gpvw.plot(ax=ax)
 
-        # Set the title and axis labels
-        ax.set_title('Portfolio Returns')
-        ax.set_xlabel('Date')
-        ax.set_ylabel('Cumulative Returns')
+    # Set the title and axis labels
+    ax.set_title('Portfolio Returns')
+    ax.set_xlabel('Date')
+    ax.set_ylabel('Cumulative Returns')
 
-        # Show the plot
-        plt.show()
+    # Format the x-axis with monthly ticks
+    ax.xaxis.set_major_locator(mdates.MonthLocator())
+    ax.xaxis.set_major_formatter(mdates.DateFormatter('%b %Y'))
+
+    ax.grid(True, linestyle='--', alpha=0.5)
+
+
+    # Show the plot
+    plt.xticks(rotation=45)
+    plt.tight_layout()
+    plt.show()
+
 
 def winsorize_column(column):
             lower_quantile = column.quantile(lower_limit)
@@ -67,14 +77,14 @@ gpvw = gpvw.tail(515).reset_index(drop=True)
 
 gpvwwin = gpvw.copy().apply(winsorize_column)
 
-gpvwwin.to_csv("win_gp_vw.csv")
+# gpvwwin.to_csv("win_gp_vw.csv")
 
 #Change to path of ew gp
 gpew = pd.read_csv("gp_returns-vw.csv")
 gpew = gpew.tail(515).reset_index(drop=True)
 gpewwin = gpew.copy().apply(winsorize_column)
 
-gpewwin.to_csv("win_gp_ew.csv")
+# gpewwin.to_csv("win_gp_ew.csv")
 
 
 
